@@ -1,14 +1,13 @@
 #################################################################################################
 # This script creates an inverted index for a given input file (containing multiple documents).
-#
-# Command line arguments:
-# [input]  - a txt file containing all the documents
-# input:  documents.txt
-#
-# usage: #python inverted_index.py [input]
+# Procedures:
+#   1. Parse document (according to its specific syntax) and create docID-doc dictionary
+#   2. Apply text normalization and store in docID-(tokenSet) format
+#   3. Construct inverted index and store the output (in text file and dictionary)
+# To run:
+#   python inverted_index.py
 #################################################################################################
 
-import sys
 import re
 import nltk
 import pickle
@@ -28,6 +27,7 @@ def read_file(in_file):
     while 1:
         line = in_file.readline()
         if line == '':  # EOF
+            in_file.close()
             break
         if line == '\r\n' or line == '\n':  # new-line
             continue
@@ -42,7 +42,7 @@ def read_file(in_file):
 
 
 def text_process():
-    """process each document text - tokenize, lowercase, stemming and remove stopwords"""
+    """process each document text (tokenize, lowercase, stemming and remove stopwords) and store as a set"""
     document_ids = doc_dict.keys()
     for doc_id in document_ids:
         document = doc_dict[doc_id]
@@ -58,7 +58,7 @@ def text_process():
         words = [word for word in words if word not in stopwords]  # remove stopwords
         words = list(set(words))  # set of words
         doc_dict[doc_id] = words
-    print_dict(doc_dict)
+    #print_dict(doc_dict)
 
 
 def print_dict(dictionary, *args):
@@ -72,14 +72,29 @@ def print_dict(dictionary, *args):
         print dictionary[key]
 
 
+def write_dict(dictionary, file_name, *args):
+    """helper function - write dictionary with given key order, if any"""
+    out_f = open(file_name, 'w')
+    if len(args) > 0:
+        keys = args[0]
+    else:
+        keys = dictionary.keys()
+    for key in keys:
+        out_f.write(key + ': ')
+        pl = dictionary[key]
+        out_f.write('[' + str(pl[0]))
+        out_f.write(' -> [' + ','.join(str(e) for e in pl[1]) + ']]\n')
+    out_f.close()
+
+
 def construct_inverted_index():
-    """find terms and its posting lists"""
+    """find terms, document frequency and its posting list"""
     for key, value in doc_dict.iteritems():
         for item in value:
-            if item in inverted_index:
+            if item in inverted_index:  # type existed
                 inverted_index[item].append(key)
             else:
-                inverted_index[item] = [key]
+                inverted_index[item] = [key]  # new type
     # sort terms and posting lists, record document frequency
     types = inverted_index.keys()
     types.sort()
@@ -87,19 +102,12 @@ def construct_inverted_index():
         sorted_list = inverted_index[term]
         sorted_list.sort()
         inverted_index[term] = [len(sorted_list), sorted_list]
-    print_dict(inverted_index, types)
+    write_dict(inverted_index, 'inverted_index.txt', types)
     pickle.dump(inverted_index, open("inverted_index.p", "wb"))
 
 
 def main():
-    # load command line arguments
-    if len(sys.argv) is not 2:
-        print 'incorrect arguments\nneed: input.txt'
-        sys.exit(2)
-    else:
-        file_name = sys.argv[1]
-    in_file = open(file_name, 'r')
-
+    in_file = open('documents.txt', 'r')
     read_file(in_file)
     text_process()
     construct_inverted_index()
